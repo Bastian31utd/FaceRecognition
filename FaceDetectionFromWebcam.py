@@ -1,43 +1,55 @@
 import cv2
+from deepface import DeepFace
+import time
 
 videoCapture = cv2.VideoCapture(0)
 if not videoCapture.isOpened():
-    print("Can not connect to camera")
+    print("Không thể kết nối với camera")
     exit()
 
 checkPath = "haarcascade_frontalface_default.xml"
 faceCascade = cv2.CascadeClassifier(checkPath)
 
-while True:
-    # Capture frame-by-frame
-    # ret: boolean yes or no
-    # frame: frame
-    ret, frame = videoCapture.read()
+last_recognition_time = time.time()
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def face_comparison(face_roi):
+    # Thực hiện so sánh khuôn mặt với DeepFace
+    # Replace 'test1.jpg' with the path to the image you want to compare with
+    obj = DeepFace.verify(face_roi, "test6.png", enforce_detection = False)
+    print(obj["verified"])
 
-    # Detect faces
-    faces = faceCascade.detectMultiScale(
-        gray,
-        scaleFactor = 1.2,
-        minNeighbors = 4,
-        minSize = (30, 30),
-    )
+def main():
+    global last_recognition_time
+    while True:
+        ret, frame = videoCapture.read()
 
-    # Draw a rectangle around the faces
-    # (x, y): left-above
-    # (0, 255, 0): color of the rectangle border
-    # 2: thickness of the rectangle border
-    for (x, y, width, height) in faces:
-        cv2.rectangle(frame, (x, y), (x + width, y + height), (0, 255, 0), 2)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Display the frames with detected faces
-    cv2.imshow('Face detection', frame)
+        faces = faceCascade.detectMultiScale(
+            gray,
+            scaleFactor=1.2,
+            minNeighbors=4,
+            minSize=(30, 30),
+        )
 
-    # ESC to exit
-    if cv2.waitKey(1) == 27:
-        break
+        for (x, y, width, height) in faces:
+            cv2.rectangle(frame, (x, y), (x + width, y + height), (0, 255, 0), 2)
 
-# print("Found {0} faces!".format(len(faces)))
+            # Lấy khuôn mặt từ frame
+            face_roi = frame[y:y+height, x:x+width]
+
+            # Kiểm tra và chạy DeepFace sau mỗi 5 giây
+            current_time = time.time()
+            if current_time - last_recognition_time >= 5:
+                last_recognition_time = current_time
+                face_comparison(face_roi)
+
+        cv2.imshow('Face detection', frame)
+        if cv2.waitKey(1) == 27:
+            break
+
+if __name__ == "__main__":
+    main()
+
 videoCapture.release()
 cv2.destroyAllWindows()
